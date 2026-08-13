@@ -1,0 +1,29 @@
+{
+  "name": "mini-nest",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test dist/test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kfsh0605/mini-nest.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/kfsh0605/mini-nest/issues"
+  },
+  "homepage": "https://github.com/kfsh0605/mini-nest#readme",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "reflect-metadata": "^0.2.2"
+  }
+}

@@ -1,0 +1,8 @@
+﻿name: mini-nest
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mini-nest-api
