@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test dist/test/container.test.js"
+    "test": "npm run build && node --test dist/test/container.test.js dist/test/review-fixes.test.js"
   },
   "repository": {
     "type": "git",
