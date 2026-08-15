@@ -22,11 +22,15 @@ export class Container {
     this.tokenRegistry.set(token, value);
   }
 
-  // Главный метод: создаёт (или берёт из кэша) экземпляр класса target
-  // path — цепочка имён классов, пройденных в текущем резолве (нужна для детекции циклов)
-  resolve<T>(target: Ctor<T>, path: string[] = []): T {
-    // Класс без @Injectable() контейнер создавать не имеет права
-    if (!Reflect.hasMetadata(INJECTABLE_METADATA_KEY, target)) {
+  // Главный метод: создаёт (или берёт из кэша) экземпляр класса target.
+  // path — цепочка КЛАССОВ (не имён!), пройденных в текущем резолве — нужна для детекции циклов.
+  // Сравниваем классы по ссылке, а не по .name: два разных класса с одинаковым именем
+  // (например, два разных DTO по имени "Response" в разных файлах) не должны считаться циклом.
+  resolve<T>(target: Ctor<T>, path: Ctor[] = []): T {
+    // Класс без СОБСТВЕННОГО @Injectable() контейнер создавать не имеет права.
+    // hasOwnMetadata (не hasMetadata!) — hasMetadata подтвердит true и для наследника,
+    // у которого своего декоратора нет, но декоратор есть у родителя по цепочке прототипов.
+    if (!Reflect.hasOwnMetadata(INJECTABLE_METADATA_KEY, target)) {
       // Явная ошибка с именем класса вместо непонятного сбоя дальше по коду
       throw new Error(`${target.name} is not marked with @Injectable()`);
     }
@@ -40,10 +44,12 @@ export class Container {
       return this.singletons.get(target) as T;
     }
 
-    // Если текущий класс уже встречается в пройденном пути — значит, это цикл
-    if (path.includes(target.name)) {
-      // Собираем полную цепочку в одну строку вида "A -> B -> A"
-      throw new Error(`Circular dependency detected: ${[...path, target.name].join(' -> ')}`);
+    // Если текущий класс уже встречается в пройденном пути — значит, это цикл.
+    // includes ищет строгое равенство (===), то есть сравнивает сами классы, а не их имена.
+    if (path.includes(target)) {
+      // Имена классов нужны только здесь, для читаемого текста ошибки
+      const chain = [...path, target].map((cls) => cls.name).join(' -> ');
+      throw new Error(`Circular dependency detected: ${chain}`);
     }
 
     // Читаем типы параметров конструктора, которые TypeScript положил при компиляции
@@ -52,8 +58,8 @@ export class Container {
     const injectTokens: Record<number, InjectionToken> =
       Reflect.getMetadata(INJECT_METADATA_KEY, target) ?? {};
 
-    // Добавляем текущий класс в конец пути перед тем, как идти вглубь по его зависимостям
-    const nextPath = [...path, target.name];
+    // Добавляем текущий класс (сам объект, не имя) в конец пути перед тем, как идти вглубь
+    const nextPath = [...path, target];
 
     // Для каждого параметра конструктора решаем, чем именно его заполнить
     const args = paramTypes.map((paramType, index) => {
