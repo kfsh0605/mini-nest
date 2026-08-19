@@ -5,6 +5,21 @@ import { Server } from 'node:http';
 import { Container } from '../src/container';
 import { createHttpApp } from '../src/dispatcher';
 import { UsersController } from '../src/controllers/users.controller';
+import { Controller } from '../src/decorators/controller';
+import { Get } from '../src/decorators/methods';
+import { Injectable } from '../src/decorators/injectable';
+import { Param, Query } from '../src/decorators/params';
+import { runValidationPipe } from '../src/pipes/validation.pipe';
+import { CreateUserDto } from '../src/dto/create-user.dto';
+
+@Injectable()
+@Controller('probe')
+class ProbeController {
+  @Get('echo/:id')
+  echo(@Query('q') q: string, @Param('id') id: string) {
+    return { q, id };
+  }
+}
 
 let server: Server;
 let baseUrl: string;
@@ -12,7 +27,7 @@ let baseUrl: string;
 describe('HTTP layer (createHttpApp)', () => {
   before(async () => {
     const container = new Container();
-    const app = createHttpApp([UsersController], container);
+    const app = createHttpApp([UsersController, ProbeController], container);
     await new Promise<void>((resolve) => app.listen(0, resolve));
     server = app;
     const address = server.address();
@@ -50,6 +65,11 @@ describe('HTTP layer (createHttpApp)', () => {
     assert.equal(body.name, 'Alan Turing');
   });
 
+  it('GET /users/:id с несуществующим id возвращает 404, а не 200 с пустым телом', async () => {
+    const response = await fetch(`${baseUrl}/users/no-such-id`);
+    assert.equal(response.status, 404);
+  });
+
   it('несуществующий маршрут возвращает 404 с понятным сообщением', async () => {
     const response = await fetch(`${baseUrl}/no-such-route`);
     assert.equal(response.status, 404);
@@ -71,13 +91,11 @@ describe('HTTP layer (createHttpApp)', () => {
   });
 
   it('POST /users с валидным телом создаёт пользователя, и он виден в последующем GET (доказывает singleton)', async () => {
-
     const createResponse = await fetch(`${baseUrl}/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Grace Hopper', email: 'grace@example.com', age: 45 }),
     });
-    // 201 - успешное создание
     assert.equal(createResponse.status, 201);
     const created = (await createResponse.json()) as { id: string; name: string };
     assert.equal(created.name, 'Grace Hopper');
@@ -87,5 +105,25 @@ describe('HTTP layer (createHttpApp)', () => {
     const fetched = (await getResponse.json()) as { name: string; email: string };
     assert.equal(fetched.name, 'Grace Hopper');
     assert.equal(fetched.email, 'grace@example.com');
+  });
+
+  it('порядок @Query()/@Param() в сигнатуре не важен - подстановка идёт по индексу параметра', async () => {
+    const response = await fetch(`${baseUrl}/probe/echo/42?q=hello`);
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as { q: string; id: string };
+    assert.equal(body.id, '42');
+    assert.equal(body.q, 'hello');
+  });
+
+  it('runValidationPipe() отдаёт настоящий instanceof CreateUserDto, а не обычный объект', async () => {
+    const outcome = await runValidationPipe(CreateUserDto, {
+      name: 'Ada Lovelace',
+      email: 'ada@example.com',
+      age: 36,
+    });
+    assert.equal(outcome.success, true);
+    if (outcome.success) {
+      assert.ok(outcome.value instanceof CreateUserDto);
+    }
   });
 });
