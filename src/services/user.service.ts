@@ -1,5 +1,7 @@
 ﻿import { Injectable } from '../decorators/injectable';
-import { CreateUserDto } from '../dto/create-user.dto';
+import { getCurrentRequestId } from '../context/request-context';
+import { NotFoundError } from '../errors';
+import { CreateUserInput } from '../dto/create-user.dto';
 
 export interface User {
   id: string;
@@ -16,18 +18,25 @@ export class UserService {
   ]);
   private nextId = 3;
 
-  findById(id: string): User | undefined {
-    return this.users.get(id);
+  findById(id: string): User {
+    console.log(`[${getCurrentRequestId()}] UserService.findById(${id})`);
+    const user = this.users.get(id);
+    if (!user) {
+      throw new NotFoundError(`User ${id} not found`);
+    }
+    return user;
   }
 
   list(limit?: number): User[] {
+    console.log(`[${getCurrentRequestId()}] UserService.list(limit=${limit ?? 'none'})`);
     const all = Array.from(this.users.values());
     return limit !== undefined ? all.slice(0, limit) : all;
   }
 
-  create(dto: CreateUserDto): User {
+  create(data: CreateUserInput): User {
+    console.log(`[${getCurrentRequestId()}] UserService.create`);
     const id = String(this.nextId++);
-    const user: User = { id, name: dto.name, email: dto.email, age: dto.age };
+    const user: User = { id, ...data };
     this.users.set(id, user);
     return user;
   }
