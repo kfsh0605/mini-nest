@@ -12,6 +12,7 @@ import { emitLifecycleEvent } from './lifecycle-events';
 import { sendJson } from './http-response';
 import { NotFoundError, ForbiddenError, ValidationError } from './errors';
 import { RequestContext, runWithRequestContext, resolveRequestId } from './context/request-context';
+import { Guard, NextFn, Interceptor } from './pipeline-types';
 
 type Ctor<T = unknown> = new (...args: any[]) => T;
 
@@ -88,12 +89,18 @@ function sendResponseStage(ctx: RequestContext): void {
   sendJson(ctx.res, statusCode, ctx.result);
 }
 
+const guards: Guard[] = [(ctx) => authGuard(ctx.req)];
+const interceptors: Interceptor[] = [loggingInterceptor];
+
+function composeInterceptors(ctx: RequestContext, chain: Interceptor[], core: NextFn): NextFn {
+  return chain.reduceRight<NextFn>((next, interceptor) => () => interceptor(ctx, next), core);
+}
+
 async function execute(ctx: RequestContext): Promise<void> {
   await runWithRequestContext(ctx.requestId, async () => {
     try {
       emitLifecycleEvent(ctx.requestId, 'middleware');
       ctx.res.setHeader('X-Request-Id', ctx.requestId);
-      await readBodyStage(ctx);
 
       const match = matchRoute(ctx.routes, ctx.method, ctx.url.pathname);
       if (!match) {
@@ -102,17 +109,23 @@ async function execute(ctx: RequestContext): Promise<void> {
       ctx.match = match;
 
       emitLifecycleEvent(ctx.requestId, 'guard');
-      if (!authGuard(ctx.req)) {
-        throw new ForbiddenError();
+      for (const guard of guards) {
+        const allowed = await guard(ctx);
+        if (!allowed) {
+          throw new ForbiddenError();
+        }
       }
 
-      await loggingInterceptor(ctx, async () => {
+      await readBodyStage(ctx);
+
+      const core: NextFn = async () => {
         emitLifecycleEvent(ctx.requestId, 'pipe');
         buildArgsStage(ctx);
 
         emitLifecycleEvent(ctx.requestId, 'handler');
         await callHandlerStage(ctx);
-      });
+      };
+      await composeInterceptors(ctx, interceptors, core)();
 
       sendResponseStage(ctx);
     } catch (error) {

@@ -111,7 +111,6 @@ describe('HTTP layer (createHttpApp)', () => {
     assert.equal(createResponse.status, 201);
     const created = (await createResponse.json()) as { id: string; name: string };
     assert.equal(created.name, 'Grace Hopper');
-
     const getResponse = await fetch(`${baseUrl}/users/${created.id}`, { headers: AUTH_HEADER });
     assert.equal(getResponse.status, 200);
     const fetched = (await getResponse.json()) as { name: string; email: string };
@@ -160,16 +159,23 @@ describe('HTTP layer (createHttpApp)', () => {
       callCount += 1;
       return originalList(...args);
     }) as typeof userService.list;
-
     const response = await fetch(`${baseUrl}/users`);
     assert.equal(response.status, 403);
     assert.equal(callCount, 0);
-
     userService.list = originalList;
   });
 
   it('guard блокирует запрос с Authorization не в формате Bearer', async () => {
     const response = await fetch(`${baseUrl}/users`, { headers: { Authorization: 'Basic abcdef' } });
+    assert.equal(response.status, 403);
+  });
+
+  it('guard проверяется раньше чтения тела: битый JSON без Authorization даёт 403, а не 400', async () => {
+    const response = await fetch(`${baseUrl}/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, // намеренно без Authorization
+      body: '{not valid json',
+    });
     assert.equal(response.status, 403);
   });
 
