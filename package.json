@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test dist/test/container.test.js dist/test/review-fixes.test.js dist/test/http.test.js"
+    "test": "npm run build && node --test dist/test/container.test.js dist/test/review-fixes.test.js dist/test/http.test.js dist/test/lifecycle-order.test.js"
   },
   "repository": {
     "type": "git",
@@ -24,9 +24,8 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.15.1",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "zod": "^4.4.3"
   }
 }
 

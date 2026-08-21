@@ -3,7 +3,7 @@ import { Get, Post } from '../decorators/methods';
 import { Body, Param, Query } from '../decorators/params';
 import { Injectable } from '../decorators/injectable';
 import { UserService } from '../services/user.service';
-import { CreateUserDto } from '../dto/create-user.dto';
+import { CreateUserSchema, CreateUserInput } from '../dto/create-user.dto';
 
 @Injectable()
 @Controller('users')
@@ -22,7 +22,7 @@ export class UsersController {
   }
 
   @Post()
-  create(@Body() dto: CreateUserDto) {
+  create(@Body(CreateUserSchema) dto: CreateUserInput) {
     return this.userService.create(dto);
   }
 }
